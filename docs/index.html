@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaussian Naive Bayes Visualizer</title>
+    <style>
+        :root {
+            /* Professional Dark Theme Colors */
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --border-color: #30363d;
+            --accent-color: #58a6ff;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex; flex-direction: column;
+            overflow: hidden; /* Prevent full-page scroll, rely on column scrolls */
+        }
+
+        /* Header Styling */
+        header {
+            padding: 15px 20px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            flex-shrink: 0;
+        }
+        header h1 { margin: 0; font-size: 1.5rem; color: var(--accent-color); letter-spacing: 0.5px; }
+        header p { margin: 5px 0 0; font-size: 0.9rem; color: var(--text-muted); }
+
+        /* Main Layout */
+        .main-container {
+            display: flex; flex: 1; overflow: hidden; gap: 20px; padding: 20px;
+        }
+
+        /* Left & Right Floating Columns */
+        .column {
+            flex: 1;
+            display: flex; flex-direction: column; gap: 20px;
+            overflow-y: auto; /* Independent vertical scrollbars */
+            padding-right: 10px; /* Space for scrollbar */
+        }
+
+        /* Custom Scrollbar for better UI */
+        .column::-webkit-scrollbar { width: 8px; }
+        .column::-webkit-scrollbar-thumb { background-color: #484f58; border-radius: 4px; }
+        .column::-webkit-scrollbar-track { background-color: transparent; }
+
+        /* Panel Styling */
+        .panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column;
+        }
+        
+        /* Set initial heights so we can test scrolling */
+        #data-canvas-panel { min-height: 400px; }
+        #controls-panel { min-height: 250px; }
+        #model-state-panel { min-height: 350px; }
+        #loss-graph-panel { min-height: 300px; }
+
+        .panel h2 { 
+            margin-top: 0; font-size: 1.1rem; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 10px; margin-bottom: 15px; 
+        }
+
+        /* Footer Styling */
+        footer {
+            padding: 12px 20px;
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex; justify-content: space-between;
+            font-size: 0.85rem; color: var(--text-muted);
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <h1>Gaussian Naive Bayes</h1>
+        <p>A step-by-step interactive demonstration of probabilistic classification based on Bayes' Theorem.</p>
+    </header>
+
+    <!-- Main Body: 2 Columns -->
+    <div class="main-container">
+        
+<!-- Left Column -->
+        <div class="column" id="left-col">
+            <div class="panel" id="data-canvas-panel">
+                <h2>Data Canvas / Input</h2>
+                <div id="canvas-container" style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                    <!-- สร้างพื้นที่ Canvas สำหรับวาดจุด -->
+                    <canvas id="dataCanvas" width="450" height="350" style="background-color: #0d1117; border: 1px solid #30363d; border-radius: 4px; cursor: crosshair;"></canvas>
+                    <div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-muted);">Click on canvas to add points.</div>
+                </div>
+            </div>
+            
+            <div class="panel" id="controls-panel">
+                <h2>Hyperparameters & Controls</h2>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div>
+                        <label for="classSelect"><strong>Select Class to Add: </strong></label>
+                        <select id="classSelect" style="padding: 5px; background: #0d1117; color: white; border: 1px solid #30363d;">
+                            <option value="0">Class 0 (Blue)</option>
+                            <option value="1">Class 1 (Red)</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button id="btnRandom" style="padding: 8px 12px; cursor: pointer;">Random Data</button>
+                        <button id="btnClear" style="padding: 8px 12px; cursor: pointer;">Clear Canvas</button>
+                    </div>
+                    <hr style="width: 100%; border-color: #30363d; margin: 10px 0;">
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnStep" style="padding: 8px 12px; background: #58a6ff; border: none; font-weight: bold; cursor: pointer;">Step-by-step</button>
+                        <button id="btnPlay" style="padding: 8px 12px; background: #238636; color: white; border: none; font-weight: bold; cursor: pointer;">Play until Convergence</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="column" id="right-col">
+            <div class="panel" id="model-state-panel">
+                <h2>Model State / Structure</h2>
+                <div id="model-state-content" style="font-size: 0.9rem; line-height: 1.5;">
+                    <p style="color:var(--text-muted);">Add data points and press Step to calculate statistics.</p>
+                </div>
+            </div>
+            </div>
+            
+            <div class="panel" id="loss-graph-panel">
+                <h2>Loss Graph</h2>
+                <div style="flex:1; border: 1px dashed #484f58; display:flex; align-items:center; justify-content:center; color:#8b949e;">
+                    [ Negative Log-Likelihood Graph Will Render Here ]
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div><strong>Group Members:</strong> [ใส่ชื่อสมาชิกที่นี่]</div>
+        <div>CE KMITL</div>
+    </footer>
+<script>
+        // Setup Canvas
+        const canvas = document.getElementById('dataCanvas');
+        const ctx = canvas.getContext('2d');
+        const classSelect = document.getElementById('classSelect');
+        
+        // Array เก็บข้อมูลจุด {x, y, class}
+        let dataPoints = [];
+
+        // ฟังก์ชันวาดจุดทั้งหมดใหม่
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // ล้างหน้าจอ
+            
+            dataPoints.forEach(point => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+                // กำหนดสี: Class 0 = สีฟ้า, Class 1 = สีแดง
+                ctx.fillStyle = point.class === 0 ? '#58a6ff' : '#ff7b72'; 
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+            });
+        }
+
+        // Event: คลิกบน Canvas เพื่อเพิ่มจุด
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const currentClass = parseInt(classSelect.value);
+
+            dataPoints.push({ x: x, y: y, class: currentClass });
+            drawCanvas(); // สั่งวาดใหม่
+        });
+
+        // Event: ปุ่ม Clear
+        document.getElementById('btnClear').addEventListener('click', () => {
+            dataPoints = [];
+            drawCanvas();
+        });
+
+        // Event: ปุ่ม Random (สุ่ม 20 จุด)
+        document.getElementById('btnRandom').addEventListener('click', () => {
+            dataPoints = [];
+            for(let i=0; i<20; i++) {
+                // สุ่มจุดให้อยู่ในกลุ่มที่แยกกันชัดเจน (จำลอง Cluster)
+                let c = Math.random() > 0.5 ? 1 : 0;
+                let baseX = c === 0 ? 100 : 300;
+                let baseY = c === 0 ? 100 : 250;
+                
+                dataPoints.push({
+                    x: baseX + (Math.random() * 100 - 50),
+                    y: baseY + (Math.random() * 100 - 50),
+                    class: c
+                });
+            }
+            drawCanvas();
+        });
+        // ฟังก์ชันคำนวณ Mean และ Variance ของ Array ตัวเลข
+        function calculateStats(values) {
+            if (values.length === 0) return { mean: 0, variance: 0 };
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            // เพิ่ม +1e-6 (var_smoothing) เพื่อป้องกัน Variance เป็น 0 กรณีมีจุดเดียว
+            const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length + 1e-6;
+            return { mean, variance };
+        }
+
+        // ฟังก์ชันอัปเดตสถานะ Naive Bayes (คำนวณจากจุดบน Canvas)
+        function updateNaiveBayesState() {
+            const stateContent = document.getElementById('model-state-content');
+            
+            if (dataPoints.length === 0) {
+                stateContent.innerHTML = '<p style="color:#ff7b72;">Please add data points first!</p>';
+                return;
+            }
+
+            // แยกข้อมูลตามคลาส
+            const class0 = dataPoints.filter(p => p.class === 0);
+            const class1 = dataPoints.filter(p => p.class === 1);
+            const total = dataPoints.length;
+
+            // คำนวณสถิติ Class 0
+            const pC0 = class0.length / total;
+            const stat0X = calculateStats(class0.map(p => p.x));
+            const stat0Y = calculateStats(class0.map(p => p.y));
+
+            // คำนวณสถิติ Class 1
+            const pC1 = class1.length / total;
+            const stat1X = calculateStats(class1.map(p => p.x));
+            const stat1Y = calculateStats(class1.map(p => p.y));
+
+            // สร้างตารางแสดงผล
+            stateContent.innerHTML = `
+                <table style="width:100%; border-collapse: collapse; text-align: left; margin-bottom: 10px;">
+                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-main);">
+                        <th style="padding-bottom: 8px;">Class</th>
+                        <th style="padding-bottom: 8px;">Prior P(C)</th>
+                        <th style="padding-bottom: 8px;">μ (X, Y)</th>
+                        <th style="padding-bottom: 8px;">σ² (X, Y)</th>
+                    </tr>
+                    <tr>
+                        <td style="color:#58a6ff; padding-top: 8px;">0 (Blue)</td>
+                        <td style="padding-top: 8px;">${pC0.toFixed(2)}</td>
+                        <td style="padding-top: 8px;">(${stat0X.mean.toFixed(1)}, ${stat0Y.mean.toFixed(1)})</td>
+                        <td style="padding-top: 8px;">(${stat0X.variance.toFixed(1)}, ${stat0Y.variance.toFixed(1)})</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#ff7b72; padding-top: 8px;">1 (Red)</td>
+                        <td style="padding-top: 8px;">${pC1.toFixed(2)}</td>
+                        <td style="padding-top: 8px;">(${stat1X.mean.toFixed(1)}, ${stat1Y.mean.toFixed(1)})</td>
+                        <td style="padding-top: 8px;">(${stat1X.variance.toFixed(1)}, ${stat1Y.variance.toFixed(1)})</td>
+                    </tr>
+                </table>
+                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 15px;">
+                    * <strong>μ (Mean):</strong> Center of the cluster.<br>
+                    * <strong>σ² (Variance):</strong> Spread of the cluster.
+                </div>
+            `;
+            
+            return {
+                prior: [pC0, pC1],
+                meanX: [stat0X.mean, stat1X.mean],
+                meanY: [stat0Y.mean, stat1Y.mean],
+                varX: [stat0X.variance, stat1X.variance],
+                varY: [stat0Y.variance, stat1Y.variance]
+            };
+        }
+
+        // ผูก Event ให้ปุ่ม Step-by-step
+        document.getElementById('btnStep').addEventListener('click', () => {
+            updateNaiveBayesState();
+        });
+    </script>
+</body>
+</html>
